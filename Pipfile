@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+importlib-metadata = "==1.7.0"
+keyring = "==21.4.0"
+pywin32-ctypes = "==0.2.0"
+zipp = "==3.1.0"
+requests = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.9"
