@@ -1,224 +1,13 @@
 import codecs
-import getpass
-import html
-
-import json
-import keyring
-import requests
+import configparser
 
 import os
 import re
 
-# -----------------------------------------------------------------------------
-# Globals
-
-# DIR define el directorio desde donde se van a levantar los archivos
-# DIR = 'C:\\Users\\baiscf\\Documents\\Trabajo\\PythonConfluence\\DirTesting'
-DIR = 'D:\\DataSVN\\CLC\\trunk\\src\\DIRHU.CLC.Conceptos\\Concepto'
-#DIR = 'D:\\dataCLC'
-
-
-# BASE_URL es la url de la API de contenidos de Confluence
-BASE_URL = "http://jira.dirhu.techint.net:8090/confluence/rest/api/content"
-# CONVERT_URL es la url de la API de Confluence para convertir formatos de contenidos de las páginas
-CONVERT_URL = "http://jira.dirhu.techint.net:8090/confluence/rest/api/contentbody/convert"
-
-VIEW_URL = "http://jira.dirhu.techint.net:8090/confluence/pages/viewpage.action?pageId="
-
-# Espacio de Confluence donde se van a buscar y crear las paginas
-SPACE_CONF = 'CLC'
-# Usuario de conexión a Confluence
-USER_CONF = 'BAISCF'
-# ID de página padre de Confluence de la cual se agregan las páginas de conceptos como hijas
-PAG_PADRE_CONF = "21235169"
-PAG_TEMPLATE = '21240001'
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.82 Safari/537.36"
+import HelperFunctions as hf
 
 
 
-def pprint(data):
-    '''
-    Pretty prints json data.
-    '''
-    print (json.dumps(
-        data,
-        sort_keys = True,
-        indent = 4,
-        separators = (', ', ' : ')))
-
-
-def get_login(username=None):
-    '''
-    Get the password for username out of the keyring.
-    '''
-
-    if username is None:
-        username = getpass.getuser()
-
-    #passwd = keyring.get_password('confluence_script', username)
-    passwd = None
-
-    if passwd is None:
-        passwd = getpass.getpass()
-        keyring.set_password('confluence_script', username, passwd)
-
-    return (username, passwd)
-
-
-def read_template(auth):
-    url = '{base}/{page_id}?expand=body.storage'.format(base=BASE_URL, page_id=PAG_TEMPLATE)
-    r = requests.get(
-        url,
-        auth=auth,
-        headers={'Content-Type': 'application/json', 'USER-AGENT': USER_AGENT}
-    )
-
-    r.raise_for_status()
-    json_text = r.text
-    return json.loads(json_text)['body']['storage']['value']
-
-
-def format_concepto(html_storage_txt, dictConcepto):
-
-    # Inserto el código del concepto
-    s = html_storage_txt.split('![CDATA[', maxsplit=1)
-    retorno = s[0] + '![CDATA[' + ''.join(dictConcepto['textConcepto']) + s[1]
-
-    # Armo la sección de links a dependencias
-    txtDependencias = ', '.join(['<ac:link><ri:page ri:content-title="Concepto ' + str(x)
-                                    + '" /><ac:plain-text-link-body><![CDATA['+ str(x)
-                                    + ']]></ac:plain-text-link-body></ac:link >' for x in dictConcepto['listDepend']])
-
-    patron = 'Conceptos que usa</th><td>'
-    indexDepen = retorno.find(patron)
-    if indexDepen != -1:
-        retorno = retorno[0:(indexDepen+len(patron))] + txtDependencias + retorno[(indexDepen+len(patron)+6):len(retorno)]
-
-    # Armo la sección de páginas relacionadas por labels
-    patron = '<ac:parameter ac:name="labels">'
-    indexDepen = retorno.find(patron)
-    if indexDepen != -1:
-        # se le suma 9 al inicio porque es el largo de la palabra "concepto_"
-        retorno = retorno[0:(indexDepen + len(patron)+9)] + dictConcepto["idConcepto"] \
-                                                    + retorno[(indexDepen + len(patron) + 9 + 4) :len(retorno)]
-
-    # Armo la sección de campos de la base donde se guarda el concepto
-    patron = 'Campos BBDD (G / A)</th><td colspan="1">'
-    indexDepen = retorno.find(patron)
-    if indexDepen != -1:
-        try:
-            retorno2 = retorno[0:(indexDepen+len(patron))] + dictConcepto['campoGrata']
-        except KeyError as name:
-            retorno2 = retorno[0:(indexDepen + len(patron))]
-
-        try:
-            retorno2 = retorno2 + " / " + dictConcepto['campoAumentos'] + retorno[(indexDepen+len(patron)+6):len(retorno)]
-        except KeyError as name:
-            retorno2 = retorno2 + retorno[(indexDepen+len(patron)+6):len(retorno)]
-
-    return retorno2
-
-
-def get_page_info(auth, pageid):
-
-    url = '{base}/{pageid}'.format(
-        base=BASE_URL,
-        pageid=pageid)
-
-    r = requests.get(url, auth = auth)
-
-    r.raise_for_status()
-
-    return r.json()
-
-
-def search_page(auth, concepto):
-    # Busca si existe la página del concepto
-
-    url = '{base}?spaceKey={space}&title=Concepto%20{con}'.format(
-        base=BASE_URL,
-        space=SPACE_CONF,
-        con=concepto)
-
-    r = requests.get(url, auth=auth)
-    r.raise_for_status()
-    r = r.json()
-    if r['size'] == 0:
-        return None
-    else:
-        # Del json con el resultado de la busqueda me quedo con el primer resultado
-        return r['results'][0]
-
-
-def add_page(auth, idConcepto, textoConcepto):
-    data = {
-        'type': 'page',
-        'title': str('Concepto ' + idConcepto),
-        'ancestors': [{"type": "page", "id": str(PAG_PADRE_CONF)}],
-        'space': {'key': SPACE_CONF},
-        'body': {
-            'storage':
-                {
-                    'representation': 'storage',
-                    'value': str(textoConcepto),
-                }
-        }
-    }
-
-    data = json.dumps(data)
-    pprint(data)
-
-    url = '{base}'.format(base=BASE_URL)
-
-    r = requests.post(
-        url,
-        data=data,
-        auth=auth,
-        headers={'Content-Type': 'application/json'}
-    )
-
-    r.raise_for_status()
-
-    print("Se agregó la página '%s' para el concepto %s" % (str('Concepto ' + idConcepto), str(idConcepto)))
-
-
-def upd_page(auth, result, textoConcepto):
-
-    info = get_page_info(auth, result['id'])
-
-    ver = int(info['version']['number']) + 1
-
-    data = {
-        'id': result['id'],
-        'type': 'page',
-        'title': result['title'],
-        'version': {'number' : ver},
-        # 'ancestors': PAG_PADRE_CONF,
-        'body': {
-            'storage':
-                {
-                    'representation': 'storage',
-                    'value': textoConcepto,
-                }
-        }
-    }
-
-    data = json.dumps(data)
-    # pprint(data)
-
-    url = '{base}/{pageid}'.format(base=BASE_URL, pageid=result['id'])
-
-    r = requests.put(
-        url,
-        data=data,
-        auth=auth,
-        headers={'Content-Type': 'application/json'}
-    )
-
-    r.raise_for_status()
-
-    print("Se actualizó la página '%s'" % (result['title']))
-    print("URL: %s%s" % (VIEW_URL, result['id']))
 
 
 def parserFile(filePath, constPat, depenPat, beginPat, midPat, endPat):
@@ -285,25 +74,25 @@ def parserFile(filePath, constPat, depenPat, beginPat, midPat, endPat):
 
             # Si me encuentro en modo copia agrego la linea al buffer
             if copying:
-                # buffer.append('<p>' + html.escape(line) + '</p>')
                 buffer['textConcepto'].append(line)
-                # print(line, end='')
 
             line = reader.readline()
             lineCount = lineCount + 1
 
     # print(buffer)
-    # para retornar transformo todas las lineas en un solo string
-    # buffer['textConcepto'] = ''.join(buffer['textConcepto'])
     return buffer
 
 
 def main():
+
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+
     # Obtenemos los datos de login
-    auth = get_login(USER_CONF)
+    auth = hf.get_login(config["CONFLUENCE"]["USER_CONF"])
 
     # Obtengo el template de la página. Lo hago al principio una sola vez para todes
-    html_storage_txt = read_template(auth)
+    html_storage_txt = hf.read_template(config,auth)
 
     # Definimos tres patrones para buscar en cada linea. Lo hago al principio una sola vez
 
@@ -319,28 +108,28 @@ def main():
     endPat = re.compile(r"#endregion", re.IGNORECASE)
 
 
-    with os.scandir(DIR) as entries:
+    with os.scandir(config["APP"]["FILES_DIR"]) as entries:
         # Para todos los archivos del directorio
         for entry in entries:
 
             print(entry.name)
             idConcepto = entry.name[1:-3]
-            filePath = DIR + '\\' + entry.name
+            filePath = config["APP"]["FILES_DIR"] + '\\' + entry.name
 
             # Parseo el archivo para quedarme con el texto del calculo del concepto
             textoConcepto = parserFile(filePath, constPat, depenPat, beginPat, midPat, endPat)
-            htmlConcepto = format_concepto(html_storage_txt, textoConcepto)
+            htmlConcepto = hf.format_concepto(html_storage_txt, textoConcepto)
             # print(htmlConcepto)
 
             # Me fijo si existe una página para ese concepto
-            result = search_page(auth, idConcepto)
+            result = hf.search_page(config, auth, idConcepto)
 
             if result is None:
                 # Si no existe la creo
-                add_page(auth, idConcepto, htmlConcepto)
+                hf.add_page(config, auth, idConcepto, htmlConcepto)
             else:
                 # sino la actualizo
-                upd_page(auth, result, htmlConcepto)
+                hf.upd_page(config, auth, result, htmlConcepto)
 
 
 if __name__ == "__main__": main()
