@@ -34,7 +34,7 @@ def get_login(username=None):
 
 
 def read_template(config,auth):
-    url = '{base}/{page_id}?expand=body.storage'.format(base=config["CONFLUENCE"]["BASE_URL"], page_id=config["CONFLUENCE"]["PAG_TEMPLATE"])
+    url = '{base}template/{page_id}'.format(base=config["CONFLUENCE"]["BASE_URL"], page_id=config["CONFLUENCE"]["PAG_TEMPLATE"])
     r = requests.get(
         url,
         auth=auth,
