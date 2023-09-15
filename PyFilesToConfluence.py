@@ -7,14 +7,9 @@ import re
 import HelperFunctions as hf
 
 
-
-
-
 def parserFile(filePath, constPat, depenPat, beginPat, midPat, endPat):
-
     # Vamos a parsear cada linea
-    with codecs.open(filePath, encoding='utf-8') as reader:
-
+    with codecs.open(filePath, encoding="utf-8") as reader:
         # Variable para indicar si tenemos que copiar las lineas porque se encontro el inicio de la sección
         copying = False
         # Variable para contar la cantidad de "regiones" que se encontraron
@@ -22,59 +17,72 @@ def parserFile(filePath, constPat, depenPat, beginPat, midPat, endPat):
         regionCount = 0
         # Variable para almacenar el resultado
         buffer = {}
-        buffer['textConcepto'] = []
-        buffer['listDepend'] = []
-        buffer['idConcepto'] = ''
-        buffer['campoGrata'] = ''
-        buffer['campoAumentos'] = ''
+        buffer["textConcepto"] = []
+        buffer["listDepend"] = []
+        buffer["idConcepto"] = ""
+        buffer["campoGrata"] = ""
+        buffer["campoAumentos"] = ""
 
         lineCount = 0
 
         line = reader.readline()
-        while line != '':  # The EOF char is an empty string
-
+        while line != "":  # The EOF char is an empty string
             # Codigo para debug
             # if lineCount == 48 or lineCount == 49:
             #    print(line)
             #    print(beginPat.search(line))
 
-            #line = line.strip()
-            if constPat.search(line) is not None: # Encontro el inicio de la region de constructor
-
-                while line.find('public') == -1:
+            # line = line.strip()
+            if (
+                constPat.search(line) is not None
+            ):  # Encontro el inicio de la region de constructor
+                while line.find("public") == -1:
                     line = reader.readline().strip()
-                line_camposbbdd = line.split(',')
+                line_camposbbdd = line.split(",")
                 try:
                     # HAgo un strip para sacar espacios y saco 1 caracter de cada punta para eliminar comillas dobles
                     buffer["idConcepto"] = line_camposbbdd[1].strip()[1:-1]
-                    if line_camposbbdd[3].find('string.Empty') == -1:
-                        buffer['campoGrata'] = re.sub('[^A-Za-z0-9_]+', '', line_camposbbdd[3])
-                    if line_camposbbdd[4].find('string.Empty') == -1:
-                        buffer['campoAumentos'] = re.sub('[^A-Za-z0-9_]+', '', line_camposbbdd[4])
+                    if line_camposbbdd[3].find("string.Empty") == -1:
+                        buffer["campoGrata"] = re.sub(
+                            "[^A-Za-z0-9_]+", "", line_camposbbdd[3]
+                        )
+                    if line_camposbbdd[4].find("string.Empty") == -1:
+                        buffer["campoAumentos"] = re.sub(
+                            "[^A-Za-z0-9_]+", "", line_camposbbdd[4]
+                        )
                 except IndexError:
                     pass
                 continue
 
-            elif depenPat.search(line) is not None: # Encontro el inicio de la region de dependencias
-
+            elif (
+                depenPat.search(line) is not None
+            ):  # Encontro el inicio de la region de dependencias
                 while depenPat.search(line) is not None:
-                    buffer['listDepend'].extend(re.findall('G?[0-9]+', line))
+                    buffer["listDepend"].extend(re.findall("G?[0-9]+", line))
                     line = reader.readline().strip()
 
-            elif beginPat.search(line) is not None:  # Encontro el inicio de la region del calculo
+            elif (
+                beginPat.search(line) is not None
+            ):  # Encontro el inicio de la region del calculo
                 copying = True
                 line = reader.readline()
-            elif (midPat.search(line) is not None) and copying:  # Encontro el inicio de otra region adentro
-                regionCount = regionCount + 1  # La sumo para descartar el final y continuar
+            elif (
+                midPat.search(line) is not None
+            ) and copying:  # Encontro el inicio de otra region adentro
+                regionCount = (
+                    regionCount + 1
+                )  # La sumo para descartar el final y continuar
             elif endPat.search(line) is not None:
                 if regionCount > 0:
-                    regionCount = regionCount - 1  # Descartando el final de una region interna
+                    regionCount = (
+                        regionCount - 1
+                    )  # Descartando el final de una region interna
                 else:
                     copying = False
 
             # Si me encuentro en modo copia agrego la linea al buffer
             if copying:
-                buffer['textConcepto'].append(line)
+                buffer["textConcepto"].append(line)
 
             line = reader.readline()
             lineCount = lineCount + 1
@@ -84,15 +92,14 @@ def parserFile(filePath, constPat, depenPat, beginPat, midPat, endPat):
 
 
 def main():
-
     config = configparser.ConfigParser()
     config.read("config.ini")
 
     # Obtenemos los datos de login
-    auth = hf.get_login(config["CONFLUENCE"]["USER_CONF"])
+    auth = (config["CONFLUENCE"]["USER_CONF"], config["CONFLUENCE"]["API_TOKEN"])
 
     # Obtengo el template de la página. Lo hago al principio una sola vez para todes
-    html_storage_txt = hf.read_template(config,auth)
+    html_storage_txt = hf.read_template(config, auth)
 
     # Definimos tres patrones para buscar en cada linea. Lo hago al principio una sola vez
 
@@ -107,17 +114,17 @@ def main():
     # Este es el patron para cerrar la zona a copiar
     endPat = re.compile(r"#endregion", re.IGNORECASE)
 
-
     with os.scandir(config["APP"]["FILES_DIR"]) as entries:
         # Para todos los archivos del directorio
         for entry in entries:
-
             print(entry.name)
             idConcepto = entry.name[1:-3]
-            filePath = config["APP"]["FILES_DIR"] + '\\' + entry.name
+            filePath = config["APP"]["FILES_DIR"] + "\\" + entry.name
 
             # Parseo el archivo para quedarme con el texto del calculo del concepto
-            textoConcepto = parserFile(filePath, constPat, depenPat, beginPat, midPat, endPat)
+            textoConcepto = parserFile(
+                filePath, constPat, depenPat, beginPat, midPat, endPat
+            )
             htmlConcepto = hf.format_concepto(html_storage_txt, textoConcepto)
             # print(htmlConcepto)
 
@@ -132,4 +139,5 @@ def main():
                 hf.upd_page(config, auth, result, htmlConcepto)
 
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
