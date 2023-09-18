@@ -149,7 +149,7 @@ def get_page_info(config, auth, pageid):
         page_info = get_page_info(config, auth, '12345678')
     """
     try:
-        url = "{base}/{pageid}".format(
+        url = "{base}content/{pageid}".format(
             base=config["CONFLUENCE"]["BASE_URL"], pageid=pageid
         )
 
