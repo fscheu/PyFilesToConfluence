@@ -167,47 +167,49 @@ def get_page_info(config, auth, pageid):
 
 def search_page(config, auth, concepto):
     """
-    Search for a Confluence page by title within a specific space.
+    Search for a Confluence page in Confluence Cloud by title.
 
     Args:
-        config (dict): Configuration settings including the Confluence API base URL and space key.
+        config (dict): Configuration settings including the Confluence API base URL.
         auth (tuple): Authentication credentials (username, API token).
         concepto (str): The title of the page to search for.
 
     Returns:
-        dict or None: The first search result if found, or None if no results or an error occurred.
+        dict or None: Page information as a dictionary if found, or None if not found.
 
     Raises:
-        Exception: If an unexpected error occurs during the search.
+        requests.exceptions.RequestException: If an error occurs while searching for the page.
+        Exception: If an unexpected error occurs.
 
     Usage:
-        result = search_page(config, auth, 'Concept Title')
-        if result:
-            # Page found, use 'result' data
-        else:
-            # Page not found or error occurred
+        page_info = search_page(config, auth, 'Concept Title')
     """
     try:
-        url = "{base}?spaceKey={space}&title=Concepto%20{con}".format(
-            base=config["CONFLUENCE"]["BASE_URL"],
-            space=config["CONFLUENCE"]["SPACE_CONF"],
-            con=concepto,
-        )
+        base_url = config["CONFLUENCE"]["BASE_URL"]
+        space = config["CONFLUENCE"]["SPACE_CONF"]
+        url = f"{base_url}content?spaceKey={space}&title=Concepto%20{concepto}"
 
-        r = requests.get(url, auth=auth)
-        r.raise_for_status()  # Raise an exception for HTTP errors
+        response = requests.get(url, auth=auth)
 
-        r = r.json()
-        if r["size"] == 0:
-            return None
+        if response.status_code == 200:
+            data = response.json()
+            if data["size"] > 0:
+                return data["results"][0]  # Return the first result if found
+            else:
+                return None  # Page not found
+        elif response.status_code == 404:
+            return None  # Page not found
         else:
-            return r["results"][0]
+            raise requests.exceptions.RequestException(
+                f"Error searching for the page: {response.status_code}"
+            )
+
     except requests.exceptions.RequestException as e:
         print(f"An error occurred while searching for the page: {str(e)}")
-        return None
+        raise
     except Exception as ex:
         print(f"An unexpected error occurred: {str(ex)}")
-        return None
+        raise
 
 
 def add_page(config, auth, idConcepto, textoConcepto):
