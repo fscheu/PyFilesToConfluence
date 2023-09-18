@@ -252,7 +252,7 @@ def add_page(config, auth, idConcepto, textoConcepto):
 
         data = json.dumps(data)
 
-        url = "{base}".format(base=config["CONFLUENCE"]["BASE_URL"])
+        url = "{base}content/".format(base=config["CONFLUENCE"]["BASE_URL"])
 
         r = requests.post(
             url, data=data, auth=auth, headers={"Content-Type": "application/json"}
