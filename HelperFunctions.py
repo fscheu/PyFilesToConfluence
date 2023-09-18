@@ -68,8 +68,14 @@ def format_concepto(html_storage_txt, dict_concepto):
         formatted_content = format_concepto(html_storage_txt, dictConcepto)
     """
     # Inserto el código del concepto
-    s = html_storage_txt.split("![CDATA[", maxsplit=1)
-    retorno = s[0] + "![CDATA[" + "".join(dict_concepto["textConcepto"]) + s[1]
+    s = html_storage_txt.split("</ac:structured-macro>", maxsplit=1)
+    retorno = (
+        s[0]
+        + "<ac:plain-text-body><![CDATA["
+        + "".join(dict_concepto["textConcepto"])
+        + "]]></ac:plain-text-body></ac:structured-macro>"
+        + s[1]
+    )
 
     # Armo la sección de links a dependencias
     txt_dependencias = ", ".join(
@@ -83,28 +89,28 @@ def format_concepto(html_storage_txt, dict_concepto):
         ]
     )
 
-    patron = "Conceptos que usa</th><td>"
+    patron = "Conceptos que usa</strong></p></th><td>"
     index_depen = retorno.find(patron)
     if index_depen != -1:
         retorno = (
             retorno[0 : (index_depen + len(patron))]
             + txt_dependencias
-            + retorno[(index_depen + len(patron) + 6) : len(retorno)]
+            + retorno[(index_depen + len(patron) + 5) : len(retorno)]
         )
 
     # Armo la sección de páginas relacionadas por labels
     patron = '<ac:parameter ac:name="labels">'
     index_depen = retorno.find(patron)
     if index_depen != -1:
-        # se le suma 9 al inicio porque es el largo de la palabra "concepto_"
+        # se le suma 9 al inicio porque es el largo de la palabra "concepto_" que es lo que tienen todos los labels
         retorno = (
             retorno[0 : (index_depen + len(patron) + 9)]
             + dict_concepto["idConcepto"]
-            + retorno[(index_depen + len(patron) + 9 + 4) : len(retorno)]
+            + retorno[(index_depen + len(patron) + 9 + 5) : len(retorno)]
         )
 
     # Armo la sección de campos de la base donde se guarda el concepto
-    patron = 'Campos BBDD (G / A)</th><td colspan="1">'
+    patron = "Campos BBDD (G / A)</strong></p></th><td>"
     index_depen = retorno.find(patron)
     if index_depen != -1:
         try:
@@ -119,11 +125,11 @@ def format_concepto(html_storage_txt, dict_concepto):
                 retorno2
                 + " / "
                 + dict_concepto["campoAumentos"]
-                + retorno[(index_depen + len(patron) + 6) : len(retorno)]
+                + retorno[(index_depen + len(patron) + 5) : len(retorno)]
             )
         except KeyError as name:
             retorno2 = (
-                retorno2 + retorno[(index_depen + len(patron) + 6) : len(retorno)]
+                retorno2 + retorno[(index_depen + len(patron) + 5) : len(retorno)]
             )
 
     return retorno2
