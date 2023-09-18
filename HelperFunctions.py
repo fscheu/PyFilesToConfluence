@@ -303,12 +303,18 @@ def upd_page(config, auth, result, textoConcepto):
 
         data = json.dumps(data)
 
-        url = "{base}/{pageid}".format(
+        url = "{base}content/{pageid}".format(
             base=config["CONFLUENCE"]["BASE_URL"], pageid=result["id"]
         )
 
         r = requests.put(
-            url, data=data, auth=auth, headers={"Content-Type": "application/json"}
+            url,
+            data=data,
+            auth=auth,
+            headers={
+                "Content-Type": "application/json",
+                "USER-AGENT": config["CONFLUENCE"]["USER_AGENT"],
+            },
         )
 
         r.raise_for_status()  # Raise an exception for HTTP errors
