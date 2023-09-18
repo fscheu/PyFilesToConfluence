@@ -5,7 +5,6 @@ name = "pypi"
 
 [packages]
 importlib-metadata = "==1.7.0"
-keyring = "==21.4.0"
 pywin32-ctypes = "==0.2.0"
 zipp = "==3.1.0"
 requests = "*"
