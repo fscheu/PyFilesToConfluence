@@ -55,13 +55,12 @@ class FileToConfluenceProcessor:
             line = reader.readline()
             while line:
                 if self._parse_constructor(line, reader, buffer):
-                    continue
+                    pass
                 elif self._parse_dependencies(line, reader, buffer):
-                    continue
-                elif self._parse_calculation(
-                    line, reader, copying, region_count, buffer
-                ):
-                    continue
+                    pass
+                else:
+                    copying, region_count = self._parse_calculation(line, copying, region_count, buffer)
+
 
                 line = reader.readline()
 
@@ -95,10 +94,9 @@ class FileToConfluenceProcessor:
             return True
         return False
 
-    def _parse_calculation(self, line, reader, copying, region_count, buffer):
+    def _parse_calculation(self, line, copying, region_count, buffer):
         if self.begin_pat.search(line):
             copying = True
-            line = reader.readline()
         elif self.mid_pat.search(line) and copying:
             region_count += 1
         elif self.end_pat.search(line):
@@ -110,7 +108,7 @@ class FileToConfluenceProcessor:
         if copying:
             buffer["textConcepto"].append(line)
 
-        return copying
+        return copying, region_count
 
     def format_concepto(self, dict_concepto):
         # Implement the formatting logic here

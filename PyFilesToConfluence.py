@@ -7,7 +7,7 @@ from FileProcessor import FileToConfluenceProcessor
 
 
 def main():
-    file_processor = FileToConfluenceProcessor
+    file_processor = FileToConfluenceProcessor()
 
     with os.scandir(file_processor.config["APP"]["FILES_DIR"]) as entries:
         # Para todos los archivos del directorio
